@@ -1,8 +1,10 @@
-from flask import Flask,  jsonify, request
+from flask import Flask,  jsonify, request, send_file
 from flask_cors import CORS
 from PIL import Image
 import numpy as np
 from scipy.signal import convolve2d
+import io
+
 
 app = Flask(__name__)
 CORS(app)
@@ -11,7 +13,6 @@ CORS(app)
 def convert_image_to_np(file_object):
     img = Image.open(file_object)
 
-    
 
     if hasattr(img, 'format') and img.format == 'HEIC':
         img = img.convert('RGB')
@@ -61,11 +62,12 @@ def sharpen_kernel(image):
      )
     
    
-   
+    '''
     half_kernel = kernel.shape[0] //2
     padded_image = np.pad(image, pad_width=1)
     conv_output = np.zeros_like(image)
-    '''
+
+    
     for i in range(half_kernel, image.shape[0]-half_kernel):
         for j in range(half_kernel, image.shape[1]-half_kernel):
             # Perform convolution
@@ -78,12 +80,45 @@ def sharpen_kernel(image):
     return output
     
  
+@app.route('/sharpen_image', methods=['POST'])
+def upload_sharpen_image():
+
+
+    print("Hitting the sharpen route")
+    img_object = request.files['image']
+    R, G, B = convert_image_to_np(img_object)
+    identity_r = sharpen_kernel(R)
+    identity_g = sharpen_kernel(G)
+    identity_b = sharpen_kernel(B)
+
+    img_to_show = np.stack([identity_r, identity_g, identity_b], axis=-1)
+
+    if img_to_show.max() <= 1.0:
+        img_to_show = (img_to_show * 255).astype(np.uint8)
+        # If it's already large values but not integers, clip and cast
+    else:
+        img_to_show = np.clip(img_to_show, 0, 255).astype(np.uint8)
+
+        # Now turn into PIL image
+        img_pil = Image.fromarray(img_to_show)
+
+        # Show the image
+        img_pil.show()
+
+        buffer = io.BytesIO()
+        img_pil.save(buffer, format="PNG")
+        buffer.seek(0)
+
+        print(buffer)
+        return send_file(buffer, mimetype="image/png")
 
 
 
 
-@app.route('/upload_image', methods=['POST'])
-def upload_image():
+
+
+@app.route('/gaussian_blur', methods=['POST'])
+def upload_gaussian_blur():
     print("API is working!")
     img_object = request.files['image']
     R, G, B = convert_image_to_np(img_object)
@@ -91,11 +126,9 @@ def upload_image():
     gaussian_blurred_g = gaussian_blur(G, 21)
     gaussian_blurred_b = gaussian_blur(B, 21)
     # Apply identity kernel
-    identity_r = sharpen_kernel(R)
-    identity_g = sharpen_kernel(G)
-    identity_b = sharpen_kernel(B)
+    
 
-    img_to_show = np.stack([identity_r, identity_g, identity_b], axis=-1)
+    img_to_show = np.stack([gaussian_blurred_r, gaussian_blurred_g, gaussian_blurred_b], axis=-1)
 
     if img_to_show.max() <= 1.0:
         img_to_show = (img_to_show * 255).astype(np.uint8)

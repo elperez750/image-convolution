@@ -3,16 +3,47 @@ import axios from "axios";
 
 const UploadImage = () => {
   const [image, setImage] = useState(null);
-
+  const [filter, setFilter] = useState(null);
+  const effects = ["blur", "sharpen", "contrast", "sepia", "invert"];
+  const [outputImage, setOutputImage] = useState(null);
   const handleChange = (event) => {
     if (event.target.files && event.target.files[0]) {
       setImage(event.target.files[0]);
     }
   };
 
-  const handleImageUpload = async (e) => {
-    e.preventDefault();
-    
+  const handleSharpenUpload = async (e) => {
+    if (!image) {
+      console.log("No image selected");
+      return;
+    }
+
+    try {
+      let formData = new FormData();
+      formData.append("image", image);
+
+      const response = await axios.post(
+        "http://127.0.0.1:5000/sharpen_image",
+        formData,
+        {
+          responseType: "blob",
+          headers: {
+            "Content-Type": "multipart/form-data"
+          }
+        }
+      );
+      console.log(response.data)
+      const url =  URL.createObjectURL(response.data);
+
+      setOutputImage(url)
+      // Handle success - could reset the form or show a success message
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      // Handle error - show error message to user
+    }
+  };
+
+  const handleGaussianUpload = async (e) => {
     if (!image) {
       console.error("No image selected");
       return;
@@ -21,19 +52,23 @@ const UploadImage = () => {
     try {
       // Create FormData correctly
       let formData = new FormData();
-      formData.append('image', image);
-      
-      console.log(formData)
+      formData.append("image", image);
+
+      console.log(formData);
       const response = await axios.post(
-        "http://127.0.0.1:5000/upload_image", 
+        "http://127.0.0.1:5000/gaussian_blur",
         formData,
         {
+          responseType:"blob"
+        },
+        {
           headers: {
-            'Content-Type': 'multipart/form-data'
-          }
+            "Content-Type": "multipart/form-data",
+          },
         }
       );
-      
+
+      console.log(URL.createObjectURL(response.data))
       console.log("Upload successful:", response.data);
       // Handle success - could reset the form or show a success message
     } catch (error) {
@@ -93,14 +128,41 @@ const UploadImage = () => {
 
         {/* Upload Button */}
         {image ? (
-          <div className="flex justify-center">
-            <button
-              onClick={handleImageUpload}
-              className="cursor-pointer flex items-center justify-center py-2 px-4 bg-blue-600 text-white font-medium rounded shadow hover:bg-blue-700 transition w-full text-center"
-            >
-              Upload Image
-            </button>
-          </div>
+          <>
+            <div className="grid grid-flow-row grid-cols-2 mb-6 gap-2">
+              {effects.map((effect) => (
+                <button
+                  key={effect}
+                  onClick={() => setFilter(effect)}
+                  className="cursor-pointer flex items-center justify-center py-2 px-4 bg-blue-600 text-white font-medium rounded shadow hover:bg-blue-700 transition w-full text-center"
+                >
+                  {effect[0].toLocaleUpperCase() + effect.slice(1)}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-center">
+              <button
+                onClick={() => {
+                  switch (filter) {
+                    case "blur":
+                      handleGaussianUpload();
+                      break;
+                    case "sharpen":
+                      handleSharpenUpload();
+                      break;
+                    default:
+                      // Default handler or fallback
+                      console.log("No handler for filter:", filter);
+                  }
+                }}
+                className="cursor-pointer flex items-center justify-center py-2 px-4 bg-blue-600 text-white font-medium rounded shadow hover:bg-blue-700 transition w-full text-center"
+              >
+                Apply Filter
+              </button>
+            </div>
+
+            {outputImage && <img src={outputImage} />}
+          </>
         ) : (
           <label
             htmlFor="select-image"
