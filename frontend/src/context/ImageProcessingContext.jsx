@@ -10,9 +10,7 @@ export const ImageProcessingProvider = ({ children }) => {
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [thresholdValue, setThresholdValue] = useState(128);
 
-  const handleImageProcessing = async (
-   
-  ) => {
+  const handleImageProcessing = async () => {
     const BASE_URL = "http://127.0.0.1:5000";
     if (!image) {
       console.log("No image to be found");
@@ -26,12 +24,13 @@ export const ImageProcessingProvider = ({ children }) => {
     setIsImageLoading(true);
 
     const filters = {
-      blur: "gaussian_blur",
-      sharpen: "sharpen_image",
+      "blur": "gaussian_blur",
+      "sharpen": "sharpen_image",
       "black and white": "black_and_white_image",
       "red channel": "red_channel",
       "green channel": "green_channel",
       "blue channel": "blue_channel",
+      "laplacian": "laplacian_image"
     };
 
     const selectedFilter = filters[filter];
@@ -81,7 +80,8 @@ export const ImageProcessingProvider = ({ children }) => {
     setIsImageLoading,
     setThresholdValue,
     handleImageProcessing,
-    deleteImage
+    deleteImage,
+    
   };
 
   return (

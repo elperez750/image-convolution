@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, request, send_file
 from flask_cors import CORS
 from PIL import Image
 import numpy as np
@@ -8,7 +8,6 @@ import io
 
 app = Flask(__name__)
 CORS(app)
-
 
 def convert_image_to_np(file_object):
     img = Image.open(file_object)
@@ -63,6 +62,21 @@ def gaussian_blur(image, kernel_size):
     # return output
 
 
+def black_and_white(img_array, threshold):
+    if len(img_array.shape) == 3:
+        grayscale = (
+            0.299 * img_array[:, :, 0]
+            + 0.587 * img_array[:, :, 1]
+            + 0.114 * img_array[:, :, 2]
+        )
+    else:
+        grayscale = img_array
+
+    threshold = float(threshold)
+    binary_image = (grayscale > threshold).astype("uint8") * 255
+    return binary_image
+
+
 def sharpen_kernel(image):
     kernel = np.array([[0, -1, 0], [-1, 9, -1], [0, -1, 0]])
 
@@ -86,17 +100,117 @@ def sharpen_kernel(image):
     # return output
 
 
+def laplacian_filter(img_array):
+    laplacian_kernel = np.array([
+        [0, 1, 0],
+        [1, -4, 1],
+        [0, 1, 0]
+    ])
+
+    padded_image = np.pad(img_array)
+
+    
+
+
+@app.route("/green_channel", methods=["POST"])
+def upload_green_channel():
+    img_object = request.files['image']
+    R, G, B = convert_image_to_np_color(img_object)
+    R[:, :] = 0
+    B[:, :] = 0
+
+    
+    img_to_show = np.stack([R, G, B], axis=-1)
+    if img_to_show.max() <= 1.0:
+        img_to_show = (img_to_show * 255).astype(np.uint8)
+        # If it's already large values but not integers, clip and cast
+    else:
+        img_to_show = np.clip(img_to_show, 0, 255).astype(np.uint8)
+
+        # Now turn into PIL image
+    img_pil = Image.fromarray(img_to_show)
+
+    buffer = io.BytesIO()
+    img_pil.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    return send_file(buffer, mimetype="image/png")
+
+
+
+@app.route("/blue_channel", methods=["POST"])
+def upload_blue_channel():
+    img_object = request.files['image']
+    R, G, B = convert_image_to_np_color(img_object)
+    R[:, :] = 0
+    G[:, :] = 0
+
+    
+    img_to_show = np.stack([R, G, B], axis=-1)
+    if img_to_show.max() <= 1.0:
+        img_to_show = (img_to_show * 255).astype(np.uint8)
+        # If it's already large values but not integers, clip and cast
+    else:
+        img_to_show = np.clip(img_to_show, 0, 255).astype(np.uint8)
+
+        # Now turn into PIL image
+    img_pil = Image.fromarray(img_to_show)
+
+    buffer = io.BytesIO()
+    img_pil.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    return send_file(buffer, mimetype="image/png")
+
+
+
+@app.route("/red_channel", methods=["POST"])
+def upload_red_channel():
+    img_object = request.files['image']
+    R, G, B = convert_image_to_np_color(img_object)
+    G[:,:] = 0
+    B[:, :] = 0
+  
+    
+    img_to_show = np.stack([R, G, B], axis=-1)
+    if img_to_show.max() <= 1.0:
+        img_to_show = (img_to_show * 255).astype(np.uint8)
+        # If it's already large values but not integers, clip and cast
+    else:
+        img_to_show = np.clip(img_to_show, 0, 255).astype(np.uint8)
+
+        # Now turn into PIL image
+    img_pil = Image.fromarray(img_to_show)
+
+    buffer = io.BytesIO()
+    img_pil.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    return send_file(buffer, mimetype="image/png")
+
+@app.route('/lapacian_image', methods=["POST"])
+def upload_laplacian_image():
+    print("hitting the laplacian filter")
+    img_object = request.files["image"]
+
+    img_array = convert_image_to_np(img_object)
+
+    converted_array = laplacian_filter(img_array)
+
+
+
+
 @app.route("/sharpen_image", methods=["POST"])
 def upload_sharpen_image():
 
     print("Hitting the sharpen route")
     img_object = request.files["image"]
     R, G, B = convert_image_to_np_color(img_object)
-    identity_r = sharpen_kernel(R)
-    identity_g = sharpen_kernel(G)
-    identity_b = sharpen_kernel(B)
+    sharpen_r = sharpen_kernel(R)
+    sharpen_g = sharpen_kernel(G)
+    sharpen_b = sharpen_kernel(B)
 
-    img_to_show = np.stack([identity_r, identity_g, identity_b], axis=-1)
+    img_to_show = np.stack([sharpen_r, sharpen_g, sharpen_b], axis=-1)
 
 
     if img_to_show.max() <= 1.0:
@@ -115,25 +229,10 @@ def upload_sharpen_image():
     return send_file(buffer, mimetype="image/png")
 
 
-def black_and_white(img_array, threshold):
-    if len(img_array.shape) == 3:
-        grayscale = (
-            0.299 * img_array[:, :, 0]
-            + 0.587 * img_array[:, :, 1]
-            + 0.114 * img_array[:, :, 2]
-        )
-    else:
-        grayscale = img_array
-
-    threshold = float(threshold)
-    binary_image = (grayscale > threshold).astype("uint8") * 255
-    return binary_image
-
-
 @app.route("/black_and_white_image", methods=["POST"])
 def upload_black_and_white():
     print("API is working")
-    print(request.values["threshold_value"])
+   
     img_object = request.files["image"]
     threshold_value = request.values["threshold_value"]
     img_array = convert_image_to_np(img_object)

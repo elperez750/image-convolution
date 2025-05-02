@@ -12,6 +12,7 @@ const effects = [
   "red channel",
   "green channel",
   "blue channel",
+  "laplacian"
 ];
 
 const FilterButtons = () => {
@@ -19,11 +20,9 @@ const FilterButtons = () => {
     outputImage,
     filter,
     setFilter,
-    setOutputImage,
     image,
     isImageLoading,
     setImage,
-    setIsImageLoading,
     handleImageProcessing
   } = useImageProcessingContext();
 

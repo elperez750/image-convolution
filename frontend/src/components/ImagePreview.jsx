@@ -2,7 +2,7 @@ import React from "react";
 import { useImageProcessingContext } from "../context/ImageProcessingContext";
 
 const ImagePreview = () => {
-    const { image, deleteImage, setOutputImage, setImage } = useImageProcessingContext()
+    const { image, deleteImage } = useImageProcessingContext()
   return (
     <div>
       <div className="text-center mb-6">
