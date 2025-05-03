@@ -34,6 +34,8 @@ export const ImageProcessingProvider = ({ children }) => {
     };
 
     const selectedFilter = filters[filter];
+    console.log(selectedFilter)
+
 
     setIsImageLoading(true);
     let formData = new FormData();

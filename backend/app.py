@@ -107,10 +107,24 @@ def laplacian_filter(img_array):
         [0, 1, 0]
     ])
 
-    padded_image = np.pad(img_array)
+    half_kernel = laplacian_kernel.shape[0] // 2
+
+   
+
+    padded_image = np.pad(img_array, pad_width=1)
+    output = np.zeros_like(padded_image)
+
+    img_array_rows = padded_image.shape[0]
+    img_array_cols = padded_image.shape[1]
+    for r in range(half_kernel, img_array_rows - half_kernel):
+        for c in range(half_kernel, img_array_cols - half_kernel):
+            piece = padded_image[r-1: r + half_kernel + 1, c-1: c+ half_kernel + 1]
+            convolution = np.sum(piece * laplacian_kernel)
+            output[r-1][c-1] = convolution
+
+    return output
 
     
-
 
 @app.route("/green_channel", methods=["POST"])
 def upload_green_channel():
@@ -188,14 +202,33 @@ def upload_red_channel():
 
     return send_file(buffer, mimetype="image/png")
 
-@app.route('/lapacian_image', methods=["POST"])
+@app.route('/laplacian_image', methods=["POST"])
 def upload_laplacian_image():
     print("hitting the laplacian filter")
     img_object = request.files["image"]
 
-    img_array = convert_image_to_np(img_object)
+    R, G, B = convert_image_to_np_color(img_object)
 
-    converted_array = laplacian_filter(img_array)
+    laplacian_r = laplacian_filter(R)
+    laplacian_g = laplacian_filter(G)
+    laplacian_b = laplacian_filter(B)
+
+    img_to_show = np.stack([laplacian_r, laplacian_g, laplacian_b], axis=-1)
+
+    if img_to_show.max() <= 1.0:
+        img_to_show = (img_to_show * 255).astype(np.uint8)
+        # If it's already large values but not integers, clip and cast
+    else:
+        img_to_show = np.clip(img_to_show, 0, 255).astype(np.uint8)
+
+        # Now turn into PIL image
+    img_pil = Image.fromarray(img_to_show)
+
+    buffer = io.BytesIO()
+    img_pil.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    return send_file(buffer, mimetype="image/png")
 
 
 

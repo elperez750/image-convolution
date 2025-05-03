@@ -12,7 +12,7 @@ const effects = [
   "red channel",
   "green channel",
   "blue channel",
-  "laplacian"
+  "laplacian",
 ];
 
 const FilterButtons = () => {
@@ -23,7 +23,7 @@ const FilterButtons = () => {
     image,
     isImageLoading,
     setImage,
-    handleImageProcessing
+    handleImageProcessing,
   } = useImageProcessingContext();
 
   const handleChange = (event) => {
@@ -61,7 +61,8 @@ const FilterButtons = () => {
               Apply Filter
             </button>
           </div>
-          {isImageLoading && <LoadingIndicator />}
+
+
           {outputImage && <img className="mt-6" src={outputImage} />}
         </>
       ) : (
