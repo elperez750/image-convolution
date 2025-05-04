@@ -1,10 +1,11 @@
-from flask import Flask, request, send_file
+from flask import Flask, request, send_file, Response
 from flask_cors import CORS
 from PIL import Image
 import numpy as np
 from scipy.signal import convolve2d
 import io
-
+import base64
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -16,6 +17,26 @@ def convert_image_to_np(file_object):
 
     img_array = np.array(img)
     return img_array
+
+
+
+def img_to_base64(img_array):
+
+    if img_array.dtype != np.uint8:
+        img_array = np.clip(img_array, 0, 255).astype(np.uint8)
+
+    img_pil = Image.fromarray(img_array)
+    buffer = io.BytesIO()
+    img_pil.save(buffer, format="PNG")
+    buffer.seek(0)
+    
+    # Encode as base64
+    img_bytes = buffer.getvalue()
+    img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+    
+    # Return as data URI for HTML embedding
+    return f"data:image/png;base64,{img_base64}"
+
 
 
 def convert_image_to_np_color(file_object):
@@ -33,6 +54,41 @@ def convert_image_to_np_color(file_object):
     return R, G, B
 
 
+@app.route('/progressive_blur', methods=["POST"])
+def progressive_blur():
+    print("Hitting progressive blur")
+    img_file = request.files['image']
+    R, G, B = convert_image_to_np_color(img_file)
+
+    def stream():
+
+        height = R.shape[0]
+        step = height // 5
+        blurred_r = R.copy()
+        blurred_g = G.copy()
+        blurred_b = B.copy()
+
+
+        for y in range(0, height, step):
+            end_y = min(y + step, height)
+
+            blurred_r[y:end_y] = gaussian_blur(R[y:end_y], 18)
+            blurred_g[y:end_y] = gaussian_blur(R[y:end_y], 18)
+            blurred_b[y:end_y] = gaussian_blur(R[y:end_y], 18)
+
+
+            frame = np.stack([blurred_r, blurred_g, blurred_b], axis=-1)
+            
+
+
+            img_b64 = img_to_base64(frame)
+            yield f"data: {img_b64}\n\n"
+            time.sleep(0.05)
+        yield "data: DONE\n\n"
+    return Response(stream(), mimetype="text/event-stream")
+
+
+
 def gaussian_blur(image, kernel_size):
     Y, X = np.meshgrid(np.linspace(-3, 3, kernel_size), np.linspace(-3, 3, kernel_size))
     kernel = np.exp(-(X**2 + Y**2) / kernel_size)
@@ -42,19 +98,23 @@ def gaussian_blur(image, kernel_size):
 
     half_kernel = kernel_size // 2
 
-    padded_image = np.pad(image, pad_width=1)
+    padded_image = np.pad(image, pad_width=half_kernel)
 
     conv_output = np.zeros_like(image)
+    rows = image.shape[0]
+    cols = image.shape[1]
 
-    for i in range(half_kernel, image.shape[0] - half_kernel):
-        for j in range(half_kernel, image.shape[1] - half_kernel):
+    for i in range(rows):
+        for j in range(cols):
             # Perform convolution
             piece = padded_image[
-                i - half_kernel : i + half_kernel + 1,
-                j - half_kernel : j + half_kernel + 1,
+                i : i + kernel_size,
+                j : j + kernel_size,
             ]
+
+
             total = np.sum(kernel * piece)
-            conv_output[i - 1, j - 1] = total
+            conv_output[i, j] = total
 
     return conv_output
 

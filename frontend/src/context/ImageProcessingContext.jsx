@@ -9,35 +9,10 @@ export const ImageProcessingProvider = ({ children }) => {
   const [filter, setFilter] = useState(null);
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [thresholdValue, setThresholdValue] = useState(128);
-
-  const handleImageProcessing = async () => {
-    const BASE_URL = "http://127.0.0.1:5000";
-    if (!image) {
-      console.log("No image to be found");
-      return;
-    }
-
-    if (outputImage) {
-      setOutputImage(null);
-    }
-
-    setIsImageLoading(true);
-
-    const filters = {
-      "blur": "gaussian_blur",
-      "sharpen": "sharpen_image",
-      "black and white": "black_and_white_image",
-      "red channel": "red_channel",
-      "green channel": "green_channel",
-      "blue channel": "blue_channel",
-      "laplacian": "laplacian_image"
-    };
-
-    const selectedFilter = filters[filter];
-    console.log(selectedFilter)
+  const BASE_URL = "http://127.0.0.1:5000";
 
 
-    setIsImageLoading(true);
+  const handleRegularImage = async({selectedFilter}) => {
     let formData = new FormData();
     formData.append("image", image);
     if ((thresholdValue >= 0 && thresholdValue <= 255)) {
@@ -64,6 +39,97 @@ export const ImageProcessingProvider = ({ children }) => {
       setIsImageLoading(false);
     }
   };
+  
+
+  const handleStreamingImage = async() => {
+    // Create form data with the image
+    let formData = new FormData();
+    formData.append("image", image);
+  
+    try {
+      // Make a POST request to the streaming endpoint
+      const response = await fetch(`${BASE_URL}/progressive_blur`, {
+        method: 'POST',
+        body: formData,
+      });
+  
+      // Create a reader from the response body
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+  
+      // Process the streaming response
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        // Decode the chunk and add to buffer
+        buffer += decoder.decode(value);
+        
+        // Process complete SSE messages
+        const messages = buffer.split('\n\n');
+        buffer = messages.pop(); // Keep the incomplete message in buffer
+        
+        for (const message of messages) {
+          if (message.startsWith('data: ')) {
+            const data = message.substring(6); // Remove 'data: ' prefix
+            
+            if (data === 'DONE') {
+              setIsImageLoading(false);
+            } else {
+              setOutputImage(data);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error with streaming image processing:", error);
+      setIsImageLoading(false);
+    }
+  };
+
+  
+
+  const handleImageProcessing = async () => {
+    if (!image) {
+      console.log("No image to be found");
+      return;
+    }
+
+    if (outputImage) {
+      setOutputImage(null);
+    }
+
+    setIsImageLoading(true);
+
+    const filters = {
+      "blur": "gaussian_blur",
+      "sharpen": "sharpen_image",
+      "black and white": "black_and_white_image",
+      "red channel": "red_channel",
+      "green channel": "green_channel",
+      "blue channel": "blue_channel",
+      "laplacian": "laplacian_image"
+    };
+
+    const selectedFilter = filters[filter];
+
+    setIsImageLoading(true);
+
+    if (selectedFilter === "gaussian_blur") {
+      await handleStreamingImage(selectedFilter)
+      
+    }
+    else {
+      await handleRegularImage(selectedFilter)
+    }
+  }
+
+  
+   
+
+
+  
 
   const deleteImage = async () => {
     setImage(null);
