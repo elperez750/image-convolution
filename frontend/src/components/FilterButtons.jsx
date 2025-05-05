@@ -31,6 +31,7 @@ const FilterButtons = () => {
       setImage(event.target.files[0]);
     }
   };
+  
 
   return (
     <div>

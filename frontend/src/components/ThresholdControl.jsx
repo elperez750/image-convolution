@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Slider from "@mui/material/Slider";
 import { useImageProcessingContext } from "../context/ImageProcessingContext";
+
 const ThresholdControl = () => {
   const {thresholdValue, setThresholdValue} = useImageProcessingContext()
 

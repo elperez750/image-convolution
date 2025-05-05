@@ -64,21 +64,36 @@ def progressive_blur():
 
         height = R.shape[0]
         step = height // 5
+        overlap = 25
         blurred_r = R.copy()
         blurred_g = G.copy()
         blurred_b = B.copy()
 
-
         for y in range(0, height, step):
-            end_y = min(y + step, height)
+            start = max(0, y - overlap)
+            end_y = min(y + step + overlap, height)
 
-            blurred_r[y:end_y] = gaussian_blur(R[y:end_y], 18)
-            blurred_g[y:end_y] = gaussian_blur(R[y:end_y], 18)
-            blurred_b[y:end_y] = gaussian_blur(R[y:end_y], 18)
+            section_r = gaussian_blur(R[start:end_y], 18)
+            section_g = gaussian_blur(G[start:end_y], 18)
+            section_b = gaussian_blur(B[start:end_y], 18)
+
+            # Compute where to write in the original image
+            write_start = y
+            write_end = min(y + step, height)
+
+            # Corresponding slice in the blurred section (offset by start)
+            section_start = write_start - start
+            section_end = section_start + (write_end - write_start)
+
+            # Safely write only non-overlapping center part
+            blurred_r[write_start:write_end] = section_r[section_start:section_end]
+            blurred_g[write_start:write_end] = section_g[section_start:section_end]
+            blurred_b[write_start:write_end] = section_b[section_start:section_end]
+
 
 
             frame = np.stack([blurred_r, blurred_g, blurred_b], axis=-1)
-            
+        
 
 
             img_b64 = img_to_base64(frame)
@@ -107,6 +122,7 @@ def gaussian_blur(image, kernel_size):
     for i in range(rows):
         for j in range(cols):
             # Perform convolution
+    
             piece = padded_image[
                 i : i + kernel_size,
                 j : j + kernel_size,

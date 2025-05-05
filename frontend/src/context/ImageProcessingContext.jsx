@@ -8,6 +8,9 @@ export const ImageProcessingProvider = ({ children }) => {
   const [outputImage, setOutputImage] = useState(null);
   const [filter, setFilter] = useState(null);
   const [isImageLoading, setIsImageLoading] = useState(false);
+  const [isStreamingImageLoading, setIsStreamingImageLoading] = useState(false);
+  const [percentage, setPercentage] = useState(0);
+
   const [thresholdValue, setThresholdValue] = useState(128);
   const BASE_URL = "http://127.0.0.1:5000";
 
@@ -45,8 +48,11 @@ export const ImageProcessingProvider = ({ children }) => {
     // Create form data with the image
     let formData = new FormData();
     formData.append("image", image);
+    
   
     try {
+
+      setIsStreamingImageLoading(true);
       // Make a POST request to the streaming endpoint
       const response = await fetch(`${BASE_URL}/progressive_blur`, {
         method: 'POST',
@@ -69,15 +75,19 @@ export const ImageProcessingProvider = ({ children }) => {
         // Process complete SSE messages
         const messages = buffer.split('\n\n');
         buffer = messages.pop(); // Keep the incomplete message in buffer
-        
+
         for (const message of messages) {
           if (message.startsWith('data: ')) {
             const data = message.substring(6); // Remove 'data: ' prefix
             
             if (data === 'DONE') {
+              setIsStreamingImageLoading(false)
+              setPercentage(0);
               setIsImageLoading(false);
             } else {
               setOutputImage(data);
+              setPercentage((prevPercentage) => prevPercentage + 20)
+
             }
           }
         }
@@ -100,7 +110,6 @@ export const ImageProcessingProvider = ({ children }) => {
       setOutputImage(null);
     }
 
-    setIsImageLoading(true);
 
     const filters = {
       "blur": "gaussian_blur",
@@ -114,13 +123,14 @@ export const ImageProcessingProvider = ({ children }) => {
 
     const selectedFilter = filters[filter];
 
-    setIsImageLoading(true);
 
     if (selectedFilter === "gaussian_blur") {
       await handleStreamingImage(selectedFilter)
       
     }
     else {
+      setIsImageLoading(true);
+
       await handleRegularImage(selectedFilter)
     }
   }
@@ -149,6 +159,8 @@ export const ImageProcessingProvider = ({ children }) => {
     setThresholdValue,
     handleImageProcessing,
     deleteImage,
+    isStreamingImageLoading,
+    percentage,
     
   };
 
