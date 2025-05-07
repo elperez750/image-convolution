@@ -13,8 +13,9 @@ export const ImageProcessingProvider = ({ children }) => {
   const [percentage, setPercentage] = useState(0);
 
   const [thresholdValue, setThresholdValue] = useState(128);
-  const BASE_URL = "http://127.0.0.1:5000";
 
+  const BASE_URL = import.meta.env.VITE_BACKEND_URL
+  console.log(BASE_URL)
   const base64ToBlob = (base64, contentType = "image/png") => {
     const byteCharacters = atob(base64);
     const byteArrays = [];
@@ -65,6 +66,7 @@ export const ImageProcessingProvider = ({ children }) => {
     // Create form data with the image
     let formData = new FormData();
     formData.append("image", image);
+    setImageLoaded(false)
 
     try {
       setIsStreamingImageLoading(true);
