@@ -16,7 +16,8 @@ app = Flask(__name__)
 # Update your CORS configuration to allow requests from your Vercel domain
 CORS(app, resources={r"/*": {"origins": [
     "https://image-convolution-frontend-6kwx3i9hz-elperez750s-projects.vercel.app",
-    "http://localhost:3000"  # For local development
+    "http://localhost:3000",
+     "https://image-convolution-frontend.vercel.app"   # For local development
 ]}})
 
 # Rest of your Flask app...
