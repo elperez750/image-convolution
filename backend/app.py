@@ -7,7 +7,7 @@ import base64
 import time
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["https://image-convolution-frontend-6kwx3i9hz-elperez750s-projects.vercel.app/"])
 
 # ===== IMAGE CONVERSION/UTILITY FUNCTIONS =====
 
