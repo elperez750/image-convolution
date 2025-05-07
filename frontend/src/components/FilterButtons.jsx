@@ -6,7 +6,6 @@ const effects = [
   "blur",
   "sharpen",
   "contrast",
-  "sepia",
   "invert",
   "black and white",
   "red channel",
@@ -21,9 +20,10 @@ const FilterButtons = () => {
     filter,
     setFilter,
     image,
-    isImageLoading,
+    imageLoaded,
     setImage,
     handleImageProcessing,
+    downloadImage
   } = useImageProcessingContext();
 
   const handleChange = (event) => {
@@ -64,7 +64,24 @@ const FilterButtons = () => {
           </div>
 
 
-          {outputImage && <img className="mt-6" src={outputImage} />}
+          {outputImage && (
+            <div>
+
+
+              <img className="mt-6" src={outputImage.url} />
+
+              {imageLoaded && (
+              <button 
+              onClick ={downloadImage}
+              className=" mt-6 cursor-pointer flex items-center justify-center py-2 px-4 bg-blue-600 text-white font-medium rounded shadow hover:bg-blue-700 transition w-full text-center"
+            >
+
+              Download Image
+              </button>
+          )}
+            </div>
+            
+            )}
         </>
       ) : (
         <label
