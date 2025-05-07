@@ -2,7 +2,6 @@ from flask import Flask, request, send_file, Response
 from flask_cors import CORS
 from PIL import Image
 import numpy as np
-from scipy.signal import convolve2d
 import io
 import base64
 import time
