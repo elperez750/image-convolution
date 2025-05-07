@@ -11,15 +11,14 @@ export const ImageProcessingProvider = ({ children }) => {
   const [isImageLoading, setIsImageLoading] = useState(false);
   const [isStreamingImageLoading, setIsStreamingImageLoading] = useState(false);
   const [percentage, setPercentage] = useState(0);
-
   const [thresholdValue, setThresholdValue] = useState(128);
 
-  const BASE_URL = import.meta.env.VITE_BACKEND_URL
-  console.log(BASE_URL)
+  const BASE_URL = import.meta.env.VITE_BACKEND_URL;
+  console.log("🚀 Backend URL:", BASE_URL);
+
   const base64ToBlob = (base64, contentType = "image/png") => {
     const byteCharacters = atob(base64);
     const byteArrays = [];
-
     for (let offset = 0; offset < byteCharacters.length; offset += 512) {
       const slice = byteCharacters.slice(offset, offset + 512);
       const byteNumbers = new Array(slice.length);
@@ -29,11 +28,9 @@ export const ImageProcessingProvider = ({ children }) => {
       const byteArray = new Uint8Array(byteNumbers);
       byteArrays.push(byteArray);
     }
-
     return new Blob(byteArrays, { type: contentType });
   };
 
-  // Images that are sent as a blob
   const handleRegularImage = async (selectedFilter) => {
     let formData = new FormData();
     formData.append("image", image);
@@ -42,60 +39,56 @@ export const ImageProcessingProvider = ({ children }) => {
     }
 
     try {
-      const response = await axios.post(
-        `${BASE_URL}/${selectedFilter}`,
-        formData,
-        {
-          responseType: "blob",
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const response = await axios.post(`${BASE_URL}/${selectedFilter}`, formData, {
+        responseType: "blob",
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
       const url = URL.createObjectURL(response.data);
-      setOutputImage({ url: url, blob: response.data });
+      setOutputImage({ url, blob: response.data });
     } catch (error) {
-      console.log(error);
+      console.error("Error uploading image:", error);
     } finally {
       setIsImageLoading(false);
     }
   };
 
   const handleStreamingImage = async (selectedFilter) => {
-    // Create form data with the image
     let formData = new FormData();
     formData.append("image", image);
-    setImageLoaded(false)
+    setImageLoaded(false);
 
     try {
       setIsStreamingImageLoading(true);
-      // Make a POST request to the streaming endpoint
+
       const response = await fetch(`${BASE_URL}/${selectedFilter}`, {
         method: "POST",
         body: formData,
       });
 
-      // Create a reader from the response body
+      if (!response.ok) {
+        throw new Error(`Fetch failed with status ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error("No readable stream returned.");
+      }
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
 
-      // Process the streaming response
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        // Decode the chunk and add to buffer
         buffer += decoder.decode(value);
-
-        // Process complete SSE messages
         const messages = buffer.split("\n\n");
-        buffer = messages.pop(); // Keep the incomplete message in buffer
+        buffer = messages.pop();
 
         for (const message of messages) {
           if (message.startsWith("data: ")) {
-            const data = message.substring(6); // Remove 'data: ' prefix
+            const data = message.substring(6);
 
             if (data === "DONE") {
               setIsStreamingImageLoading(false);
@@ -103,85 +96,73 @@ export const ImageProcessingProvider = ({ children }) => {
               setImageLoaded(true);
               setIsImageLoading(false);
             } else {
-              const base64 = data
-                .replace(/^data:image\/(png|jpeg);base64,/, "")
-                .trim();
-
+              const base64 = data.replace(/^data:image\/(png|jpeg);base64,/, "").trim();
               const blob = base64ToBlob(base64, "image/png");
               const objectUrl = URL.createObjectURL(blob);
-              setOutputImage({
-                url: objectUrl,
-                blob: blob,
-                base64: data,
-              });
-              setPercentage((prevPercentage) => prevPercentage + 20);
+              setOutputImage({ url: objectUrl, blob, base64: data });
+              setPercentage((prev) => prev + 20);
             }
           }
         }
       }
     } catch (error) {
-      console.error("Error with streaming image processing:", error);
+      console.error("❌ Error with streaming image processing:", error);
       setIsImageLoading(false);
+      setIsStreamingImageLoading(false);
     }
   };
 
   const downloadImage = () => {
-    downloadRegularImage(outputImage);
-  };
-
-  const downloadRegularImage = (imageData, filename = "processed.png") => {
-    if (!imageData?.blob) {
-      console.error("No blob found to download.");
+    if (!outputImage?.blob) {
+      console.error("❌ No blob to download.");
       return;
     }
-    const url = URL.createObjectURL(imageData.blob);
+    const url = URL.createObjectURL(outputImage.blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = filename;
+    link.download = "processed.png";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url); // Clean up memory
+    URL.revokeObjectURL(url);
   };
 
   const handleImageProcessing = async () => {
     if (!image) {
-      console.log("No image to be found");
+      console.log("❌ No image to process.");
       return;
     }
 
-    if (outputImage) {
-      setOutputImage(null);
-    }
+    if (outputImage) setOutputImage(null);
 
     const filters = {
-      "blur": "gaussian_blur",
-      "sharpen": "sharpen_image",
-      "invert": "invert_image",
+      blur: "gaussian_blur",
+      sharpen: "sharpen_image",
+      invert: "invert_image",
       "black and white": "black_and_white_image",
       "red channel": "red_channel",
       "green channel": "green_channel",
       "blue channel": "blue_channel",
-      "laplacian": "laplacian_image",
+      laplacian: "laplacian_image",
     };
 
     const selectedFilter = filters[filter];
+    console.log("🎛 Selected filter:", selectedFilter);
 
     if (
       selectedFilter === "gaussian_blur" ||
-      selectedFilter == "sharpen_image" ||
-      selectedFilter == "laplacian_image" ||
-      selectedFilter == "invert_image"
+      selectedFilter === "sharpen_image" ||
+      selectedFilter === "laplacian_image" ||
+      selectedFilter === "invert_image"
     ) {
       await handleStreamingImage(selectedFilter);
     } else {
       setIsImageLoading(true);
-
       await handleRegularImage(selectedFilter);
     }
   };
 
-  const deleteImage = async () => {
+  const deleteImage = () => {
     setImage(null);
     setImageLoaded(false);
     setOutputImage(null);
@@ -203,7 +184,7 @@ export const ImageProcessingProvider = ({ children }) => {
     isStreamingImageLoading,
     percentage,
     downloadImage,
-    imageLoaded
+    imageLoaded,
   };
 
   return (
