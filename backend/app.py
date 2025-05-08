@@ -6,6 +6,8 @@ from scipy.signal import convolve2d
 import io
 import base64
 import time
+from scipy.ndimage import gaussian_filter
+
 
 app = Flask(__name__)
 
@@ -82,15 +84,8 @@ def invert_image(image):
     return inverted
 
 
-def gaussian_blur(image, kernel_size):
-    Y, X = np.meshgrid(np.linspace(-3, 3, kernel_size), np.linspace(-3, 3, kernel_size))
-    sigma = 1.0
-    kernel = np.exp(-(X**2 + Y**2) / (2 * sigma**2))
-
-    # Normalize the kernel
-    kernel /= np.sum(kernel)
-
-    return convolve2d(image, kernel, mode="same", boundary="symm")
+def gaussian_blur(image, sigma):
+    return gaussian_filter(image, sigma=sigma)
 
 
     #Manual solution. Served as practice for me, but very inefficient when it comes to calculating convolutions
