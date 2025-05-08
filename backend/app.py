@@ -2,27 +2,30 @@ from flask import Flask, request, send_file, Response
 from flask_cors import CORS
 from PIL import Image
 import numpy as np
+from scipy.signal import convolve2d
 import io
 import base64
 import time
 
 app = Flask(__name__)
-from flask import Flask, request, send_file, Response
-from flask_cors import CORS
-from PIL import Image
-# other imports...
 
-app = Flask(__name__)
+
 # Update your CORS configuration to allow requests from your Vercel domain
-CORS(app, resources={r"/*": {"origins": [
-    "https://image-convolution-frontend.vercel.app",
-    "https://image-convolution-frontend-6kwx3i9hz-elperez750s-projects.vercel.app",
-    "http://localhost:3000"  # For local development
-]}})
+CORS(app)
 
 # Rest of your Flask app...
 
 # ===== IMAGE CONVERSION/UTILITY FUNCTIONS =====
+
+def np_to_png_response(img_to_show):
+    img_pil = Image.fromarray(img_to_show)
+    buffer = io.BytesIO()
+    img_pil.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    return send_file(buffer, mimetype="image/png")
+
+
 
 def convert_image_to_np(file_object):
     img = Image.open(file_object)
@@ -31,6 +34,7 @@ def convert_image_to_np(file_object):
 
     img_array = np.array(img)
     return img_array
+
 
 def convert_image_to_np_color(file_object):
     img = Image.open(file_object)
@@ -45,6 +49,7 @@ def convert_image_to_np_color(file_object):
     B = img_array[:, :, 2]
     return R, G, B
 
+
 def img_to_base64(img_array):
     if img_array.dtype != np.uint8:
         img_array = np.clip(img_array, 0, 255).astype(np.uint8)
@@ -53,28 +58,37 @@ def img_to_base64(img_array):
     buffer = io.BytesIO()
     img_pil.save(buffer, format="PNG")
     buffer.seek(0)
-    
+
     # Encode as base64
     img_bytes = buffer.getvalue()
-    img_base64 = base64.b64encode(img_bytes).decode('utf-8')
-    
+    img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+
     # Return as data URI for HTML embedding
     return f"data:image/png;base64,{img_base64}"
 
+
 # ===== IMAGE FILTER/EFFECT FUNCTIONS =====
+
 
 def invert_image(image):
     inverted = 255 - image
     return inverted
 
+
 def gaussian_blur(image, kernel_size):
     Y, X = np.meshgrid(np.linspace(-3, 3, kernel_size), np.linspace(-3, 3, kernel_size))
-    kernel = np.exp(-(X**2 + Y**2) / kernel_size)
+    sigma = 1.0
+    kernel = np.exp(-(X**2 + Y**2) / (2 * sigma**2))
 
     # Normalize the kernel
     kernel /= np.sum(kernel)
 
-    half_kernel = kernel_size // 2
+    return convolve2d(image, kernel, mode="same", boundary="symm")
+
+
+    #Manual solution. Served as practice for me, but very inefficient when it comes to calculating convolutions
+    """
+     half_kernel = kernel_size // 2
 
     padded_image = np.pad(image, pad_width=half_kernel)
 
@@ -94,10 +108,18 @@ def gaussian_blur(image, kernel_size):
             conv_output[i, j] = total
 
     return conv_output
+    
+    """
+
 
 def sharpen_kernel(image):
     kernel = np.array([[0, -1, 0], [-1, 9, -1], [0, -1, 0]])
 
+    return convolve2d(image, kernel, mode="same", boundary="symm")
+
+    #Manual solution. Served as practice for me, but very inefficient when it comes to calculating convolutions
+
+"""
     half_kernel = kernel.shape[0] // 2
     padded_image = np.pad(image, pad_width=1)
     conv_output = np.zeros_like(image)
@@ -114,16 +136,26 @@ def sharpen_kernel(image):
 
     return conv_output
 
+"""
+
+
 def laplacian_filter(img_array):
-    laplacian_kernel = np.array([
-        [0, 1, 0],
-        [1, -4, 1],
-        [0, 1, 0]
-    ])
+    laplacian_kernel = np.array([[0, 1, 0], [1, -4, 1], [0, 1, 0]])
+
+
+    return convolve2d(img_array, laplacian_kernel, mode="same", boundary="symm")
+
+
+
+    #Manual solution. Served as practice for me, but very inefficient when it comes to calculating convolutions
+
+"""
 
     kernel_size = laplacian_kernel.shape[0]
+
+
     half_kernel = laplacian_kernel.shape[0] // 2
-   
+    
     padded_image = np.pad(img_array, pad_width=half_kernel)
     output = np.zeros_like(img_array)
 
@@ -136,6 +168,9 @@ def laplacian_filter(img_array):
             output[r][c] = convolution
 
     return output
+
+"""
+
 
 def black_and_white(img_array, threshold):
     if len(img_array.shape) == 3:
@@ -151,74 +186,65 @@ def black_and_white(img_array, threshold):
     binary_image = (grayscale > threshold).astype("uint8") * 255
     return binary_image
 
+
 # ===== ROUTE HANDLERS - COLOR CHANNEL FILTERS =====
+
 
 @app.route("/red_channel", methods=["POST"])
 def upload_red_channel():
-    img_object = request.files['image']
+    img_object = request.files["image"]
     R, G, B = convert_image_to_np_color(img_object)
-    G[:,:] = 0
+    G[:, :] = 0
     B[:, :] = 0
-  
+
     img_to_show = np.stack([R, G, B], axis=-1)
     if img_to_show.max() <= 1.0:
         img_to_show = (img_to_show * 255).astype(np.uint8)
     else:
         img_to_show = np.clip(img_to_show, 0, 255).astype(np.uint8)
 
-    img_pil = Image.fromarray(img_to_show)
-    buffer = io.BytesIO()
-    img_pil.save(buffer, format="PNG")
-    buffer.seek(0)
+    return np_to_png_response(img_to_show)
 
-    return send_file(buffer, mimetype="image/png")
 
 @app.route("/green_channel", methods=["POST"])
 def upload_green_channel():
-    img_object = request.files['image']
+    img_object = request.files["image"]
     R, G, B = convert_image_to_np_color(img_object)
     R[:, :] = 0
     B[:, :] = 0
-    
+
     img_to_show = np.stack([R, G, B], axis=-1)
     if img_to_show.max() <= 1.0:
         img_to_show = (img_to_show * 255).astype(np.uint8)
     else:
         img_to_show = np.clip(img_to_show, 0, 255).astype(np.uint8)
 
-    img_pil = Image.fromarray(img_to_show)
-    buffer = io.BytesIO()
-    img_pil.save(buffer, format="PNG")
-    buffer.seek(0)
+    return np_to_png_response(img_to_show)
 
-    return send_file(buffer, mimetype="image/png")
 
 @app.route("/blue_channel", methods=["POST"])
 def upload_blue_channel():
-    img_object = request.files['image']
+    img_object = request.files["image"]
     R, G, B = convert_image_to_np_color(img_object)
     R[:, :] = 0
     G[:, :] = 0
-    
+
     img_to_show = np.stack([R, G, B], axis=-1)
     if img_to_show.max() <= 1.0:
         img_to_show = (img_to_show * 255).astype(np.uint8)
     else:
         img_to_show = np.clip(img_to_show, 0, 255).astype(np.uint8)
 
-    img_pil = Image.fromarray(img_to_show)
-    buffer = io.BytesIO()
-    img_pil.save(buffer, format="PNG")
-    buffer.seek(0)
+    return np_to_png_response(img_to_show)
 
-    return send_file(buffer, mimetype="image/png")
 
 # ===== ROUTE HANDLERS - TRANSFORMATION FILTERS =====
+
 
 @app.route("/black_and_white_image", methods=["POST"])
 def upload_black_and_white():
     print("API is working")
-   
+
     img_object = request.files["image"]
     threshold_value = request.values["threshold_value"]
     img_array = convert_image_to_np(img_object)
@@ -229,12 +255,8 @@ def upload_black_and_white():
     else:
         img_to_show = np.clip(img_to_show, 0, 255).astype(np.uint8)
 
-    img_pil = Image.fromarray(img_to_show)
-    buffer = io.BytesIO()
-    img_pil.save(buffer, format="PNG")
-    buffer.seek(0)
+    return np_to_png_response(img_to_show)
 
-    return send_file(buffer, mimetype="image/png")
 
 # ===== ROUTE HANDLERS - STREAMING FILTERS =====
 
@@ -242,7 +264,7 @@ def upload_black_and_white():
 @app.route("/gaussian_blur", methods=["POST"])
 def upload_gaussian_blur():
     print("Hitting progressive blur")
-    img_file = request.files['image']
+    img_file = request.files["image"]
     R, G, B = convert_image_to_np_color(img_file)
 
     def gaussian_stream():
@@ -278,15 +300,16 @@ def upload_gaussian_blur():
             img_b64 = img_to_base64(frame)
             yield f"data: {img_b64}\n\n"
             time.sleep(0.05)
-            
+
         yield "data: DONE\n\n"
-        
+
     return Response(gaussian_stream(), mimetype="text/event-stream")
+
 
 @app.route("/sharpen_image", methods=["POST"])
 def upload_sharpen_image():
     print("Hitting sharpen image ")
-    img_file = request.files['image']
+    img_file = request.files["image"]
     R, G, B = convert_image_to_np_color(img_file)
 
     def sharpen_stream():
@@ -296,7 +319,7 @@ def upload_sharpen_image():
         sharpen_r = R.copy()
         sharpen_g = G.copy()
         sharpen_b = B.copy()
-        
+
         for y in range(0, height, step):
             start = max(0, y - overlap)
             end_y = min(y + step + overlap, height)
@@ -322,18 +345,17 @@ def upload_sharpen_image():
             img_b64 = img_to_base64(frame)
             yield f"data: {img_b64}\n\n"
             time.sleep(0.05)
-            
+
         yield "data: DONE\n\n"
-        
+
     return Response(sharpen_stream(), mimetype="text/event-stream")
 
 
-@app.route('/invert_image', methods=["POST"])
+@app.route("/invert_image", methods=["POST"])
 def upload_invert_image():
     print("Hitting invert")
     img_file = request.files["image"]
     R, G, B = convert_image_to_np_color(img_file)
-
 
     def invert_stream():
         height = R.shape[0]
@@ -342,13 +364,10 @@ def upload_invert_image():
         invert_r = R.copy()
         invert_g = G.copy()
         invert_b = B.copy()
-        
+
         for y in range(0, height, step):
             start = max(0, y - overlap)
             end_y = min(y + step + overlap, height)
-
-            
-        
 
             section_r = invert_image(R[start:end_y])
             section_g = invert_image(G[start:end_y])
@@ -371,20 +390,16 @@ def upload_invert_image():
             img_b64 = img_to_base64(frame)
             yield f"data: {img_b64}\n\n"
             time.sleep(0.05)
-            
+
         yield "data: DONE\n\n"
-        
+
     return Response(invert_stream(), mimetype="text/event-stream")
 
 
-
-
-
-
-@app.route('/laplacian_image', methods=["POST"])
+@app.route("/laplacian_image", methods=["POST"])
 def upload_laplacian_image():
     print("Hitting laplacian image")
-    img_file = request.files['image']
+    img_file = request.files["image"]
     R, G, B = convert_image_to_np_color(img_file)
 
     def laplacian_stream():
@@ -420,7 +435,7 @@ def upload_laplacian_image():
             img_b64 = img_to_base64(frame)
             yield f"data: {img_b64}\n\n"
             time.sleep(0.05)
-            
+
         yield "data: DONE\n\n"
-        
+
     return Response(laplacian_stream(), mimetype="text/event-stream")
