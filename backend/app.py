@@ -11,7 +11,9 @@ app = Flask(__name__)
 
 
 # Update your CORS configuration to allow requests from your Vercel domain
-CORS(app)
+
+# For development, allow all origins
+CORS(app, origins="*", supports_credentials=True)
 
 # Rest of your Flask app...
 
