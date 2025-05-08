@@ -12,8 +12,13 @@ app = Flask(__name__)
 
 # Update your CORS configuration to allow requests from your Vercel domain
 
-# For development, allow all origins
-CORS(app, origins="*", supports_credentials=True)
+CORS(app, resources={r"/*": {"origins": [
+    "https://image-convolution-frontend.vercel.app",
+    "https://image-convolution-frontend-6kwx3i9hz-elperez750s-projects.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:5173",  # Add your Vite development server
+    "http://127.0.0.1:5173"   # Also add this variation
+]}})
 
 # Rest of your Flask app...
 
